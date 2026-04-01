@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>System Update Helper</title>
+    <style>
+        :root {
+            --bg0: #070c16;
+            --bg1: #121b2d;
+            --panel: #101a2bcc;
+            --line: #2c3a57;
+            --text: #ecf3ff;
+            --muted: #9ba9c6;
+            --ok: #7de3be;
+            --warn: #ffcf81;
+            --win-blue: #0078d7;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow: hidden;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: #000;
+            color: var(--text);
+        }
+
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            display: none;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        #proxy-start {
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background:
+                radial-gradient(900px 500px at 10% -20%, #1d335c, transparent 65%),
+                radial-gradient(900px 500px at 100% 0%, #0f443d, transparent 65%),
+                linear-gradient(140deg, var(--bg0), var(--bg1));
+        }
+
+        .card {
+            width: min(560px, 100%);
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 20px 70px #0000009f;
+            backdrop-filter: blur(8px);
+        }
+
+        .badge {
+            display: inline-block;
+            border: 1px solid #365180;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            color: #cfe0ff;
+            background: #132440;
+            padding: 5px 10px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.3rem, 4vw, 1.9rem);
+        }
+
+        .sub {
+            margin: 10px 0 16px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .connect-btn,
+        .next-btn,
+        .os-btn {
+            width: 100%;
+            border: none;
+            border-radius: 11px;
+            padding: 13px 14px;
+            font-size: 0.97rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .connect-btn {
+            background: linear-gradient(90deg, #33b2ff, #63f0bf);
+            color: #051520;
+        }
+
+        #proxy-loading {
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            background:
+                radial-gradient(850px 450px at 20% -20%, #1a2e57, transparent 65%),
+                linear-gradient(140deg, #070d1a, #0d1629);
+        }
+
+        .console {
+            width: min(760px, 100%);
+            background: #0a1220ea;
+            border: 1px solid #263652;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 20px 66px #0000008f;
+        }
+
+        .head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 10px;
+        }
+
+        .lights { display: flex; gap: 6px; }
+        .lights span { width: 10px; height: 10px; border-radius: 50%; display: block; }
+        .lights span:nth-child(1) { background: #ff6d6d; }
+        .lights span:nth-child(2) { background: #ffd166; }
+        .lights span:nth-child(3) { background: #8af39f; }
+
+        .title {
+            font-size: 0.84rem;
+            color: #d3dff6;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .status-item {
+            background: #0f1a2b;
+            border: 1px solid #2a3b5a;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .status-item small {
+            display: block;
+            color: var(--muted);
+            margin-bottom: 4px;
+            font-size: 0.76rem;
+        }
+
+        .status-item strong {
+            color: #deebff;
+            font-size: 0.9rem;
+        }
+
+        .progress-wrap {
+            background: #0e1829;
+            border: 1px solid #2a3c5b;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .progress-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 0.82rem;
+            color: #d6e4ff;
+            margin-bottom: 7px;
+        }
+
+        .bar {
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: #1a2840;
+        }
+
+        .bar-fill {
+            width: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #34b5ff, #67f0be);
+            box-shadow: 0 0 16px #34b5ff8a;
+            transition: width 0.35s ease;
+        }
+
+        .log {
+            margin-top: 12px;
+            border: 1px solid #2a3c59;
+            border-radius: 10px;
+            background: #070d17;
+            padding: 10px;
+            max-height: 175px;
+            overflow: auto;
+            color: #c3d6ff;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }
+
+        #update-required {
+            margin-top: 12px;
+            border: 1px solid #6a5330;
+            border-radius: 10px;
+            background: #1b150b;
+            color: #ffe3b5;
+            padding: 12px;
+            display: none;
+        }
+
+        #update-required p {
+            margin: 0 0 10px;
+            font-size: 0.88rem;
+        }
+
+        .next-btn {
+            background: #ffd79a;
+            color: #231200;
+        }
+
+        #os-screen {
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: radial-gradient(900px 500px at 50% -30%, #1f2f56, transparent 60%), #0b0f19;
+        }
+
+        .picker {
+            width: min(460px, 100%);
+            background: #141c2d;
+            border: 1px solid #2a3551;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 20px 60px #0000009c;
+        }
+
+        .picker h2 {
+            margin: 0 0 8px;
+            font-size: 1.35rem;
+            text-align: center;
+        }
+
+        .picker p {
+            margin: 0 0 18px;
+            text-align: center;
+            color: #abb7d3;
+            font-size: 0.95rem;
+        }
+
+        .os-btn { margin-top: 10px; }
+        .os-win { background: #1d88d8; color: #fff; }
+        .os-apple { background: #f4f4f4; color: #111; }
+        .os-android { background: #2f374a; color: #fff; }
+
+        .update-screen {
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            position: fixed;
+        }
+
+        #windows-screen {
+            background: var(--win-blue);
+            color: #f1f7ff;
+        }
+
+        .win-stage {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .win-dots {
+            width: 48px;
+            height: 48px;
+            position: relative;
+        }
+
+        .win-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.96);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin: -4px;
+            transform-origin: 0 0;
+            animation: winDotFade 1.2s linear infinite;
+        }
+
+        .win-dots span:nth-child(1) { transform: rotate(0deg) translate(0, -20px); animation-delay: 0s; }
+        .win-dots span:nth-child(2) { transform: rotate(45deg) translate(0, -20px); animation-delay: 0.1s; }
+        .win-dots span:nth-child(3) { transform: rotate(90deg) translate(0, -20px); animation-delay: 0.2s; }
+        .win-dots span:nth-child(4) { transform: rotate(135deg) translate(0, -20px); animation-delay: 0.3s; }
+        .win-dots span:nth-child(5) { transform: rotate(180deg) translate(0, -20px); animation-delay: 0.4s; }
+        .win-dots span:nth-child(6) { transform: rotate(225deg) translate(0, -20px); animation-delay: 0.5s; }
+        .win-dots span:nth-child(7) { transform: rotate(270deg) translate(0, -20px); animation-delay: 0.6s; }
+        .win-dots span:nth-child(8) { transform: rotate(315deg) translate(0, -20px); animation-delay: 0.7s; }
+
+        @keyframes winDotFade {
+            0% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+
+        .win-copy {
+            text-align: center;
+            line-height: 1.35;
+            color: #f2f8ff;
+            max-width: 90%;
+        }
+
+        .win-copy-main {
+            margin: 0;
+            font-size: clamp(1.35rem, 3.8vw, 3rem);
+        }
+
+        .win-copy-sub {
+            margin: 12px 0 0;
+            font-size: clamp(1rem, 2.6vw, 2rem);
+        }
+
+        .win-copy-note {
+            margin: 44px 0 0;
+            font-size: clamp(0.95rem, 2.3vw, 1.45rem);
+            opacity: 0.94;
+        }
+
+        #apple-screen {
+            background: #000;
+            color: #fff;
+        }
+
+        .apple-logo {
+            width: 98px;
+            margin-bottom: 40px;
+            filter: brightness(0) invert(1);
+        }
+
+        .apple-bar {
+            width: min(390px, 74vw);
+            height: 5px;
+            border-radius: 999px;
+            background: #3f3f41;
+            overflow: hidden;
+        }
+
+        .apple-fill {
+            width: 0;
+            height: 100%;
+            background: #fff;
+            border-radius: 999px;
+            transition: width 0.5s linear;
+        }
+
+        #android-screen {
+            background: #1f2230;
+            color: #f0f3fb;
+            padding: 28px;
+            align-items: flex-start;
+            justify-content: flex-start;
+            text-align: left;
+        }
+
+        .android-wrap {
+            width: min(520px, 100%);
+            margin: 90px auto 0;
+        }
+
+        .android-icon {
+            width: 44px;
+            height: 44px;
+            border: 3px solid #3b86ff;
+            border-radius: 10px;
+            margin: 0 auto 12px;
+            position: relative;
+        }
+
+        .android-icon::before,
+        .android-icon::after {
+            content: "";
+            position: absolute;
+            border: 2px solid #3b86ff;
+            width: 10px;
+            height: 10px;
+        }
+
+        .android-icon::before { top: -5px; right: -5px; border-left: none; border-bottom: none; }
+        .android-icon::after { bottom: -5px; left: -5px; border-right: none; border-top: none; }
+
+        .android-title {
+            margin: 0;
+            font-size: clamp(1.6rem, 5vw, 2.9rem);
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .android-progress {
+            margin-top: 10px;
+            width: 100%;
+            height: 7px;
+            background: #8a8f9e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .android-fill {
+            width: 0;
+            height: 100%;
+            background: #d6d8df;
+            transition: width 0.4s linear;
+        }
+
+        .android-meta {
+            margin-top: 10px;
+            text-align: center;
+            color: #d2d4db;
+            font-size: clamp(1rem, 3.2vw, 1.8rem);
+        }
+
+        .android-note {
+            margin-top: 200px;
+            color: #aeb3c0;
+            font-size: clamp(0.95rem, 3.4vw, 1.3rem);
+            line-height: 1.45;
+        }
+
+        .cancel-btn {
+            position: absolute;
+            left: 22px;
+            bottom: 20px;
+            border: none;
+            background: transparent;
+            color: #5ea9ff;
+            font-size: clamp(1rem, 3.5vw, 1.5rem);
+            cursor: pointer;
+        }
+
+        .cancel-btn.win {
+            position: static;
+            margin-top: 40px;
+            color: #9bdfff;
+            border: 1px solid #24607b;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 1rem;
+            background: rgba(0, 173, 239, 0.12);
+        }
+
+        .cancel-btn.apple {
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 56px;
+            color: #e5e5ea;
+            border: 1px solid #515154;
+            border-radius: 999px;
+            padding: 8px 24px;
+            background: rgba(255, 255, 255, 0.06);
+            font-size: 0.95rem;
+        }
+
+        #reveal-screen {
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 14px;
+            background: #000;
+        }
+
+        #reveal-screen h2 {
+            margin: 0 0 10px;
+            font-size: clamp(1.6rem, 6vw, 3rem);
+            color: #ff4f4f;
+            letter-spacing: 0.02em;
+        }
+
+        .video-shell {
+            width: min(920px, 100%);
+            aspect-ratio: 16 / 9;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #3f3f3f;
+            background: #000;
+        }
+
+        .hint {
+            margin-top: 8px;
+            color: #9da6bb;
+            font-size: 0.84rem;
+        }
+
+        .yt-fallback {
+            display: none;
+            margin-top: 10px;
+            color: #9ec5ff;
+            border: 1px solid #365a8f;
+            border-radius: 8px;
+            padding: 8px 12px;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 700px) {
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .android-wrap {
+                margin-top: 70px;
+            }
+
+            .android-note {
+                margin-top: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section id="proxy-start" class="screen active">
+        <div class="card">
+            <span class="badge">Secure Proxy Controller</span>
+            <h1>Connect to your proxy network</h1>
+            <p class="sub">A protected route will be created for this device. Temporary network controls may lock while deployment is in progress.</p>
+            <button id="connect-btn" class="connect-btn" type="button">Connect And Provision</button>
+        </div>
+    </section>
+
+    <section id="proxy-loading" class="screen" aria-live="polite">
+        <div class="console">
+            <div class="head">
+                <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+                <div class="title">proxy-agent://system/update-session-4471</div>
+            </div>
+
+            <div class="status-grid">
+                <div class="status-item"><small>Status</small><strong id="status-text">Initializing</strong></div>
+                <div class="status-item"><small>Session</small><strong>#4471-AZ</strong></div>
+                <div class="status-item"><small>Integrity</small><strong id="integrity-text">Pending</strong></div>
+            </div>
+
+            <div class="progress-wrap">
+                <div class="progress-top">
+                    <span id="phase-text">Preparing secure handshake...</span>
+                    <span id="percent-text">0%</span>
+                </div>
+                <div class="bar"><div id="progress-fill" class="bar-fill"></div></div>
+            </div>
+
+            <div id="log" class="log"></div>
+
+            <div id="update-required">
+                <p>A core patch is required before this proxy network can finish connecting.</p>
+                <button id="continue-to-os" class="next-btn" type="button">Continue To Device Update</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="os-screen" class="screen">
+        <div class="picker">
+            <h2>Select Your OS</h2>
+            <p>Choose your device OS</p>
+            <button class="os-btn os-win" type="button" data-os="windows">Windows</button>
+            <button class="os-btn os-apple" type="button" data-os="apple">Apple (iOS/macOS)</button>
+            <button class="os-btn os-android" type="button" data-os="android">Android</button>
+        </div>
+    </section>
+
+    <section id="windows-screen" class="screen update-screen" aria-live="polite">
+        <div class="win-stage">
+            <div class="win-dots" aria-hidden="true">
+                <span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span>
+            </div>
+            <div class="win-copy">
+                <p class="win-copy-main">Working on updates <span id="win-percent">0%</span> complete.</p>
+                <p class="win-copy-sub">Don&#39;t turn off your PC. This will take a while.</p>
+                <p class="win-copy-note">Your PC will restart several times.</p>
+            </div>
+        </div>
+        <button class="cancel-btn win" type="button">Cancel</button>
+    </section>
+
+    <section id="apple-screen" class="screen update-screen" aria-live="polite">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple" class="apple-logo">
+        <div class="apple-bar"><div id="apple-fill" class="apple-fill"></div></div>
+        <button class="cancel-btn apple" type="button">Cancel</button>
+    </section>
+
+    <section id="android-screen" class="screen update-screen" aria-live="polite">
+        <div class="android-wrap">
+            <div class="android-icon"></div>
+            <h2 class="android-title">Downloading update...</h2>
+            <div class="android-progress"><div id="android-fill" class="android-fill"></div></div>
+            <div class="android-meta"><span id="android-meta-text">0%/9.5 MB</span></div>
+            <div class="android-note">
+                Downloading updates over a mobile network or while roaming may cause additional charges.<br><br>
+                Your device might restart to complete the update.
+            </div>
+        </div>
+        <button class="cancel-btn" type="button">Cancel</button>
+    </section>
+
+    <section id="reveal-screen" class="screen update-screen">
+        <h2>APRIL FOOLS 😝🫵</h2>
+        <div class="video-shell">
+            <iframe
+                id="video"
+                src=""
+                title="Prank video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen>
+            </iframe>
+        </div>
+        <div class="hint">If autoplay is blocked, tap once anywhere on screen.</div>
+        <a id="open-youtube" class="yt-fallback" href="#" target="_blank" rel="noopener noreferrer">Open video on YouTube</a>
+    </section>
+
+    <script>
+        const proxyStart = document.getElementById("proxy-start");
+        const proxyLoading = document.getElementById("proxy-loading");
+        const osScreen = document.getElementById("os-screen");
+        const windowsScreen = document.getElementById("windows-screen");
+        const appleScreen = document.getElementById("apple-screen");
+        const androidScreen = document.getElementById("android-screen");
+        const revealScreen = document.getElementById("reveal-screen");
+
+        const connectBtn = document.getElementById("connect-btn");
+        const continueToOS = document.getElementById("continue-to-os");
+
+        const statusText = document.getElementById("status-text");
+        const integrityText = document.getElementById("integrity-text");
+        const phaseText = document.getElementById("phase-text");
+        const percentText = document.getElementById("percent-text");
+        const progressFill = document.getElementById("progress-fill");
+        const log = document.getElementById("log");
+        const updateRequired = document.getElementById("update-required");
+
+        const appleFill = document.getElementById("apple-fill");
+        const androidFill = document.getElementById("android-fill");
+        const androidMetaText = document.getElementById("android-meta-text");
+        const winPercent = document.getElementById("win-percent");
+
+        const screens = [proxyStart, proxyLoading, osScreen, windowsScreen, appleScreen, androidScreen, revealScreen];
+
+        const phases = [
+            { p: 8, phase: "Preparing secure handshake...", line: "[OK] Session token issued." },
+            { p: 16, phase: "Locating nearest proxy edge...", line: "[OK] Edge AP-South-01 selected." },
+            { p: 31, phase: "Generating route certificate...", line: "[OK] ECDSA certificate signed." },
+            { p: 44, phase: "Binding DNS resolver policy...", line: "[OK] DNS-over-TLS profile attached." },
+            { p: 57, phase: "Syncing transport channels...", line: "[OK] Channel matrix synced." },
+            { p: 69, phase: "Validating gateway state...", line: "[WARN] Core patch required before finalization." }
+        ];
+
+        let proxyTimer = null;
+        let osAnimTimer = null;
+        let activeOS = "";
+        let progress = 0;
+
+        function setActiveScreen(screenEl) {
+            screens.forEach(function (screen) {
+                screen.classList.remove("active");
+            });
+            screenEl.classList.add("active");
+        }
+
+        function requestFullScreen() {
+            const el = document.documentElement;
+            if (el.requestFullscreen) {
+                el.requestFullscreen().catch(function () { return null; });
+            }
+        }
+
+        function pushLog(text) {
+            const stamp = new Date().toLocaleTimeString([], { hour12: false });
+            const row = document.createElement("div");
+            row.textContent = "[" + stamp + "] " + text;
+            log.appendChild(row);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearTimers() {
+            if (proxyTimer) {
+                clearInterval(proxyTimer);
+                proxyTimer = null;
+            }
+            if (osAnimTimer) {
+                clearInterval(osAnimTimer);
+                osAnimTimer = null;
+            }
+        }
+
+        function runProxyLoading() {
+            clearTimers();
+            log.innerHTML = "";
+            updateRequired.style.display = "none";
+            statusText.textContent = "Connecting";
+            integrityText.textContent = "Verifying";
+            phaseText.textContent = "Preparing secure handshake...";
+            percentText.textContent = "0%";
+            progressFill.style.width = "0%";
+            pushLog("[BOOT] Proxy agent initialized.");
+            pushLog("[BOOT] Network adapter profile locked.");
+
+            let i = 0;
+            proxyTimer = setInterval(function () {
+                if (i >= phases.length) {
+                    clearInterval(proxyTimer);
+                    proxyTimer = null;
+                    statusText.textContent = "Update Needed";
+                    integrityText.textContent = "Blocked";
+                    updateRequired.style.display = "block";
+                    return;
+                }
+
+                const step = phases[i];
+                progressFill.style.width = step.p + "%";
+                percentText.textContent = step.p + "%";
+                phaseText.textContent = step.phase;
+                pushLog(step.line);
+                i += 1;
+            }, 1100);
+        }
+
+        function animateWindows() {
+            progress = 0;
+            if (winPercent) {
+                winPercent.textContent = "0%";
+            }
+            clearTimers();
+            osAnimTimer = setInterval(function () {
+                progress += 1;
+                if (progress > 100) {
+                    progress = 0;
+                }
+                if (winPercent) {
+                    winPercent.textContent = progress + "%";
+                }
+            }, 1400);
+        }
+
+        function animateApple() {
+            progress = 32;
+            appleFill.style.width = progress + "%";
+            clearTimers();
+            osAnimTimer = setInterval(function () {
+                progress += 1;
+                if (progress > 95) {
+                    progress = 32;
+                }
+                appleFill.style.width = progress + "%";
+            }, 500);
+        }
+
+        function animateAndroid() {
+            progress = 0;
+            androidFill.style.width = "0%";
+            androidMetaText.textContent = "0%/9.5 MB";
+            clearTimers();
+            osAnimTimer = setInterval(function () {
+                progress += 1;
+                if (progress > 99) {
+                    progress = 0;
+                }
+                const downloaded = (9.5 * (progress / 100)).toFixed(1);
+                androidFill.style.width = progress + "%";
+                androidMetaText.textContent = progress + "%/" + downloaded + " MB";
+            }, 520);
+        }
+
+        function startOSUpdate(os) {
+            activeOS = os;
+            if (os === "windows") {
+                setActiveScreen(windowsScreen);
+                animateWindows();
+            }
+            if (os === "apple") {
+                setActiveScreen(appleScreen);
+                animateApple();
+            }
+            if (os === "android") {
+                setActiveScreen(androidScreen);
+                animateAndroid();
+            }
+        }
+
+        function showReveal() {
+            clearTimers();
+            setActiveScreen(revealScreen);
+            const video = document.getElementById("video");
+            const embedUrl = "https://www.youtube.com/embed/QDia3e12czc?autoplay=1&mute=1&playsinline=1&rel=0";
+            const watchUrl = "https://youtu.be/QDia3e12czc?si=jNelBbYHTajvh2Kr";
+            const openYoutube = document.getElementById("open-youtube");
+
+            video.src = embedUrl;
+            openYoutube.href = watchUrl;
+
+            // YouTube often blocks embeds from file:// pages with Error 153.
+            if (window.location.protocol === "file:") {
+                openYoutube.style.display = "inline-block";
+                setTimeout(function () {
+                    window.location.href = watchUrl;
+                }, 650);
+            }
+        }
+
+        connectBtn.addEventListener("click", function () {
+            window.history.pushState({ mode: "proxy-loading" }, "", "");
+            setActiveScreen(proxyLoading);
+            runProxyLoading();
+        });
+
+        continueToOS.addEventListener("click", function () {
+            window.history.pushState({ mode: "os-select" }, "", "");
+            setActiveScreen(osScreen);
+        });
+
+        document.querySelectorAll(".os-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                const os = btn.getAttribute("data-os");
+                requestFullScreen();
+                window.history.pushState({ mode: "os-update", os: os }, "", "");
+                startOSUpdate(os);
+            });
+        });
+
+        document.querySelectorAll(".cancel-btn").forEach(function (btn) {
+            btn.addEventListener("click", showReveal);
+        });
+
+        window.addEventListener("popstate", function () {
+            if (activeOS) {
+                window.history.pushState({ mode: "os-update", os: activeOS }, "", "");
+            }
+        });
+
+        document.addEventListener("fullscreenchange", function () {
+            if (!document.fullscreenElement && !revealScreen.classList.contains("active")) {
+                showReveal();
+            }
+        });
+    </script>
+</body>
+</html>
